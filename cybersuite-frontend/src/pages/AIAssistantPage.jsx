@@ -1,0 +1,170 @@
+import { useState, useRef, useEffect } from 'react'
+import { motion, AnimatePresence } from 'framer-motion'
+import GlassCard from '../components/ui/GlassCard'
+import LoadingSpinner from '../components/ui/LoadingSpinner'
+import { api } from '../services/api'
+import toast from 'react-hot-toast'
+import { FiSend, FiMessageSquare, FiCpu, FiUser, FiMessageCircle, FiAlertTriangle } from 'react-icons/fi'
+
+const WELCOME = {
+  role: 'assistant',
+  content: "Welcome to **CyberSuite AI**!\n\nI'm your cybersecurity assistant. Ask me about:\n- SQL Injection, XSS, CSRF vulnerabilities\n- Port scanning and network recon\n- Password security and SSL/TLS\n- How to interpret scan results\n\n**Try:** *\"What is SQL injection?\"*",
+}
+
+const SUGGESTIONS = [
+  'What is SQL Injection?',
+  'How does XSS work?',
+  'Explain port scanning',
+  'How to fix missing security headers?',
+  'What is subdomain takeover?',
+  'How do I secure passwords?',
+]
+
+function Message({ msg }) {
+  const isUser = msg.role === 'user'
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 10 }}
+      animate={{ opacity: 1, y: 0 }}
+      className={`flex gap-3 ${isUser ? 'flex-row-reverse' : ''}`}
+    >
+      <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 text-xs font-bold ${
+        isUser ? 'bg-cyber-blue/30 text-cyber-cyan' : 'bg-cyber-purple/20 text-cyber-purple'
+      }`}>
+        {isUser ? <FiUser size={14} /> : <FiCpu size={14} />}
+      </div>
+      <div className={`w-full px-4 py-3 rounded-xl text-sm leading-relaxed ${
+        isUser
+          ? 'bg-cyber-blue/20 border border-cyber-blue/30 text-cyber-text'
+          : 'glass border border-cyber-border text-cyber-text'
+      }`}>
+        <div className="whitespace-pre-wrap" dangerouslySetInnerHTML={{
+          __html: msg.content
+            .replace(/```([\s\S]*?)```/g, '<div class="font-mono text-cyber-green bg-[#050810]/50 p-3 rounded-lg my-2 text-xs border border-cyber-border/30 overflow-x-auto">$1</div>')
+            .replace(/\*\*(.*?)\*\*/g, '<strong class="text-cyber-cyan">$1</strong>')
+            .replace(/`(.*?)`/g, '<code class="font-mono text-cyber-green bg-black/30 px-1 rounded">$1</code>')
+            .replace(/\*(.*?)\*/g, '<em class="text-cyber-muted">$1</em>')
+        }} />
+        {msg.topic && (
+          <p className="mt-2 text-[10px] text-cyber-muted font-mono border-t border-cyber-border pt-1.5">
+            Topic: {msg.topic}
+            {msg.suggested_tools?.length > 0 && ` · Try: ${msg.suggested_tools.join(', ')}`}
+          </p>
+        )}
+      </div>
+    </motion.div>
+  )
+}
+
+export default function AIAssistantPage() {
+  const [messages, setMessages] = useState([WELCOME])
+  const [input, setInput]       = useState('')
+  const [loading, setLoading]   = useState(false)
+  const bottomRef               = useRef(null)
+
+  useEffect(() => {
+    bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
+  }, [messages, loading])
+
+  const send = async (text) => {
+    const msg = text || input.trim()
+    if (!msg || loading) return
+    setInput('')
+    setMessages(prev => [...prev, { role: 'user', content: msg }])
+    setLoading(true)
+    try {
+      const res = await api.post('/api/ai/chat', {
+        message: msg,
+        history: messages.slice(-6),
+      })
+      setMessages(prev => [...prev, {
+        role: 'assistant',
+        content: res.data.reply,
+        topic: res.data.topic,
+        suggested_tools: res.data.suggested_tools,
+      }])
+    } catch {
+      toast.error('AI assistant unavailable')
+      setMessages(prev => [...prev, {
+        role: 'assistant',
+        content: 'Unable to reach the AI backend. Make sure the FastAPI server is running.',
+      }])
+    } finally { setLoading(false) }
+  }
+
+  return (
+    <div className="page-container space-y-5">
+      <div>
+        <h1 className="text-2xl font-black text-white">AI <span className="gradient-text">Assistant</span></h1>
+        <p className="text-xs text-cyber-muted mt-1 font-mono">Cybersecurity knowledge engine — ask anything</p>
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-4 gap-4" style={{ height: 'calc(100vh - 220px)', minHeight: 500 }}>
+        {/* Suggestions Sidebar */}
+        <GlassCard title="Quick Questions" className="lg:col-span-1 overflow-y-auto">
+          <div className="space-y-2">
+            {SUGGESTIONS.map(s => (
+              <button
+                key={s}
+                onClick={() => send(s)}
+                className="w-full text-left text-xs px-3 py-2.5 rounded-lg text-cyber-muted hover:text-cyber-cyan hover:bg-cyan-500/5 border border-transparent hover:border-cyan-500/20 transition-all leading-snug"
+              >
+                <FiMessageCircle className="inline mr-1" /> {s}
+              </button>
+            ))}
+          </div>
+        </GlassCard>
+
+        {/* Chat Window */}
+        <div className="lg:col-span-3 glass flex flex-col overflow-hidden">
+          {/* Header */}
+          <div className="flex items-center gap-2 px-4 py-3 border-b border-cyber-border/50 flex-shrink-0">
+            <FiMessageSquare size={14} className="text-cyber-purple" />
+            <span className="text-xs font-bold uppercase tracking-widest text-cyber-muted">CyberSuite AI</span>
+            <span className="ml-auto status-dot dot-online animate-pulse-slow" />
+          </div>
+
+          {/* Messages */}
+          <div className="flex-1 overflow-y-auto px-4 py-4 space-y-4">
+            {messages.map((m, i) => <Message key={i} msg={m} />)}
+            {loading && (
+              <div className="flex gap-3">
+                <div className="w-8 h-8 rounded-full bg-cyber-purple/20 flex items-center justify-center text-cyber-purple"><FiCpu size={14} /></div>
+                <div className="glass border border-cyber-border px-4 py-3 rounded-xl">
+                  <div className="flex gap-1 items-center h-4">
+                    {[0,1,2].map(i => (
+                      <motion.div
+                        key={i}
+                        animate={{ y: [0,-4,0] }}
+                        transition={{ duration: 0.6, repeat: Infinity, delay: i*0.15 }}
+                        className="w-1.5 h-1.5 rounded-full bg-cyber-purple"
+                      />
+                    ))}
+                  </div>
+                </div>
+              </div>
+            )}
+            <div ref={bottomRef} />
+          </div>
+
+          {/* Input */}
+          <div className="px-4 pb-4 pt-3 border-t border-cyber-border/50 flex gap-2 flex-shrink-0">
+            <input
+              className="cyber-input flex-1"
+              placeholder="Ask about vulnerabilities, tools, techniques..."
+              value={input}
+              onChange={e => setInput(e.target.value)}
+              onKeyDown={e => e.key === 'Enter' && !e.shiftKey && send()}
+              id="ai-chat-input"
+              disabled={loading}
+            />
+            <button onClick={() => send()} disabled={loading || !input.trim()} className="btn-cyber px-4 flex-shrink-0" id="ai-send-btn"
+              style={{ borderColor:'rgba(139,92,246,0.4)', color:'#8B5CF6' }}>
+              <FiSend size={14} />
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}

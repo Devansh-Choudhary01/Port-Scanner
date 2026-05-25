@@ -1,0 +1,70 @@
+import re
+import socket
+from urllib.parse import urlparse
+from fastapi import HTTPException
+from typing import Optional
+
+
+# ─── Input Sanitizers ─────────────────────────────────────────────────────────
+
+def sanitize_host(host: str) -> str:
+    """Validate and clean a hostname or IP address."""
+    host = host.strip().lower()
+    host = re.sub(r'^https?://', '', host)
+    host = host.split('/')[0]
+
+    # Block private / loopback ranges from being targeted
+    BLOCKED_PREFIXES = ('127.', '10.', '192.168.', '169.254.', '0.', 'localhost')
+    if any(host.startswith(p) for p in BLOCKED_PREFIXES) or host == 'localhost':
+        raise HTTPException(status_code=400, detail="Private / loopback addresses are not allowed.")
+
+    if len(host) > 253:
+        raise HTTPException(status_code=400, detail="Hostname too long.")
+
+    return host
+
+
+def sanitize_url(url: str) -> str:
+    """Validate and clean a URL."""
+    url = url.strip()
+    if not url.startswith(('http://', 'https://')):
+        url = 'https://' + url
+
+    parsed = urlparse(url)
+    if not parsed.netloc:
+        raise HTTPException(status_code=400, detail="Invalid URL.")
+
+    sanitized_host = sanitize_host(parsed.netloc)
+    return f"{parsed.scheme}://{sanitized_host}"
+
+
+def sanitize_port_range(start: int, end: int) -> tuple[int, int]:
+    """Validate port range stays within safe bounds."""
+    from app.core.config import settings
+    if start < 1 or end > 65535 or start > end:
+        raise HTTPException(status_code=400, detail="Invalid port range (1–65535).")
+    if (end - start) > settings.MAX_PORT_RANGE:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Port range too large. Max {settings.MAX_PORT_RANGE} ports per scan."
+        )
+    return start, end
+
+
+def sanitize_payload(payload: str, max_length: int = 500) -> str:
+    """Strip dangerous shell / SQL characters from free-text payloads."""
+    if len(payload) > max_length:
+        raise HTTPException(status_code=400, detail="Payload too long.")
+    # Remove null bytes and other control characters
+    payload = payload.replace('\x00', '').strip()
+    return payload
+
+
+# ─── IP Resolution Helper ─────────────────────────────────────────────────────
+
+def resolve_host(host: str) -> Optional[str]:
+    """Attempt to resolve hostname to IP; return None on failure."""
+    try:
+        return socket.gethostbyname(host)
+    except socket.gaierror:
+        return None
