@@ -27,8 +27,26 @@
 
 html { 
   scroll-behavior: smooth; 
-  /* Globally scale up the application (fonts, spacing, padding) */
-  font-size: 20px; 
+  /* Responsive base font-size scaling across device viewports */
+  font-size: 19px; 
+}
+
+@media (max-width: 1200px) {
+  html {
+    font-size: 16px;
+  }
+}
+
+@media (max-width: 768px) {
+  html {
+    font-size: 13.5px;
+  }
+}
+
+@media (max-width: 400px) {
+  html {
+    font-size: 12px;
+  }
 }
 
 body {

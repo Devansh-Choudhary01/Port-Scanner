@@ -99,9 +99,9 @@ export default function AIAssistantPage() {
         <p className="text-xs text-cyber-muted mt-1 font-mono">Cybersecurity knowledge engine — ask anything</p>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-4 gap-4" style={{ height: 'calc(100vh - 220px)', minHeight: 500 }}>
+      <div className="flex flex-col lg:grid lg:grid-cols-4 gap-4 lg:h-[calc(100vh-220px)] lg:min-h-[500px]">
         {/* Suggestions Sidebar */}
-        <GlassCard title="Quick Questions" className="lg:col-span-1 overflow-y-auto">
+        <GlassCard title="Quick Questions" className="lg:col-span-1 overflow-y-auto max-h-[165px] lg:max-h-none" delay={0.05}>
           <div className="space-y-2">
             {SUGGESTIONS.map(s => (
               <button
@@ -116,7 +116,7 @@ export default function AIAssistantPage() {
         </GlassCard>
 
         {/* Chat Window */}
-        <div className="lg:col-span-3 glass flex flex-col overflow-hidden">
+        <div className="lg:col-span-3 glass flex flex-col overflow-hidden h-[450px] lg:h-full">
           {/* Header */}
           <div className="flex items-center gap-2 px-4 py-3 border-b border-cyber-border/50 flex-shrink-0">
             <FiMessageSquare size={14} className="text-cyber-purple" />

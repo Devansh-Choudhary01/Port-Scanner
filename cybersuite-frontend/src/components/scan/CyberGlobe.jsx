@@ -305,12 +305,38 @@ export default function CyberGlobe({ attacks = [], is3DView = true, autoRotate =
       mx = e.clientX; my = e.clientY
     }
 
+    // Touch event listeners for mobile, tablet, and iPad support
+    let td = false, tx=0, ty=0
+    resizeNode.ontouchstart = (e) => {
+      if (e.touches.length === 1) {
+        td = true
+        tx = e.touches[0].clientX
+        ty = e.touches[0].clientY
+      }
+    }
+    window.ontouchend = () => td = false
+    window.ontouchmove = (e) => {
+      if (!td || !is3DView || e.touches.length !== 1) return
+      if (globeMesh.current) {
+        globeMesh.current.rotation.y += (e.touches[0].clientX - tx) * 0.005
+        globeMesh.current.rotation.x += (e.touches[0].clientY - ty) * 0.005
+      }
+      tx = e.touches[0].clientX
+      ty = e.touches[0].clientY
+    }
+
     return () => {
       ro.disconnect()
       cancelAnimationFrame(animRef.current)
       window.onmouseup = null
       window.onmousemove = null
-      if (resizeNode) resizeNode.innerHTML = ''
+      window.ontouchend = null
+      window.ontouchmove = null
+      if (resizeNode) {
+        resizeNode.onmousedown = null
+        resizeNode.ontouchstart = null
+        resizeNode.innerHTML = ''
+      }
     }
   }, [is3DView, autoRotate])
 

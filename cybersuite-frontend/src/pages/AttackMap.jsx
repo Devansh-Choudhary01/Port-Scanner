@@ -82,9 +82,9 @@ export default function AttackMap() {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 xl:grid-cols-4 gap-4" style={{ height: 'calc(100vh - 120px)', minHeight: '600px' }}>
+      <div className="flex flex-col xl:grid xl:grid-cols-4 gap-4 xl:h-[calc(100vh-120px)] xl:min-h-[600px]">
         {/* Globe Container */}
-        <GlassCard className="xl:col-span-3 overflow-hidden p-0 relative flex flex-col" delay={0.05}>
+        <GlassCard className="xl:col-span-3 overflow-hidden p-0 relative flex flex-col h-[380px] md:h-[480px] xl:h-full" delay={0.05}>
           <div className="flex-1 relative">
             <CyberGlobe attacks={attacks} is3DView={is3DView} autoRotate={autoPlay} />
             
@@ -106,17 +106,17 @@ export default function AttackMap() {
             <div className="flex items-center gap-4 text-xs text-cyber-muted font-mono">
               <span>Nodes: {CITIES.length}</span>
               <span>Active Arcs: {attacks.length}</span>
-              <span className="text-cyber-green">Globe rendered via Three.js</span>
+              <span className="text-cyber-green font-semibold hidden sm:inline">Globe: Three.js</span>
             </div>
             <div className="flex items-center gap-2 text-xs text-cyber-muted">
               <span className="status-dot dot-online animate-pulse-slow" style={{ backgroundColor: '#00d4ff', boxShadow: '0 0 8px #00d4ff' }}/>
-              <span className="font-mono">SIMULATION MODE</span>
+              <span className="font-mono">SIMULATION</span>
             </div>
           </div>
         </GlassCard>
 
         {/* Attack Log */}
-        <GlassCard title="Attack Feed" className="overflow-hidden p-0 flex flex-col" delay={0.1}>
+        <GlassCard title="Attack Feed" className="overflow-hidden p-0 flex flex-col h-[250px] md:h-[300px] xl:h-full" delay={0.1}>
           <div className="flex-1 overflow-y-auto terminal p-3" style={{borderRadius:0}}>
             {logs.map((l)=>(
               <div key={l.id} className="flex gap-2 text-xs leading-relaxed border-b border-cyber-border/20 pb-1 mb-1">
