@@ -1,8 +1,10 @@
 import asyncio
 import socket
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends, HTTPException, Request
 from app.models.recon_models import SubdomainRequest, SubdomainResponse, SubdomainResult
 from app.core.security import sanitize_host
+from app.api.auth.auth import get_current_user
+from app.core.audit import log_scan
 
 router = APIRouter()
 
@@ -30,12 +32,17 @@ async def check_subdomain(subdomain: str, domain: str) -> SubdomainResult:
 
 
 @router.post("/subdomain-finder", response_model=SubdomainResponse, summary="Subdomain Enumerator")
-async def subdomain_finder(request: SubdomainRequest):
-    """
-    Enumerate subdomains for a given domain using a built-in wordlist.
-    Uses async DNS resolution for speed.
-    """
+async def subdomain_finder(
+    request: SubdomainRequest,
+    http_request: Request,
+    current_user: dict = Depends(get_current_user),
+):
+    """Enumerate subdomains. Requires JWT auth and consent."""
+    if not getattr(request, "consent_confirmed", False):
+        raise HTTPException(status_code=403, detail="You must confirm authorization before scanning.")
     domain = sanitize_host(request.domain)
+    client_ip = http_request.client.host if http_request.client else "unknown"
+    log_scan(current_user["email"], "subdomain-finder", domain, client_ip)
 
 
     semaphore = asyncio.Semaphore(50)

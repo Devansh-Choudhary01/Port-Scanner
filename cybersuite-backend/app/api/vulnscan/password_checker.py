@@ -1,10 +1,12 @@
 import re
 import math
 import string
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends, HTTPException, Request
 from app.models.vuln_models import (
     PasswordRequest, PasswordResponse, PasswordStrength
 )
+from app.api.auth.auth import get_current_user
+from app.core.audit import log_scan
 
 router = APIRouter()
 
@@ -98,9 +100,13 @@ def _assess(password: str) -> PasswordResponse:
 
 
 @router.post("/password-check", response_model=PasswordResponse, summary="Password Strength Checker")
-async def check_password(request: PasswordRequest):
+async def check_password(
+    request: PasswordRequest,
+    http_request: Request,
+    current_user: dict = Depends(get_current_user),
+):
     """
     Analyse a password for strength, entropy, and security issues.
-    No passwords are stored or logged.
+    No passwords are stored or logged. Requires JWT auth.
     """
     return _assess(request.password)

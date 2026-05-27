@@ -1,11 +1,12 @@
 import { useState } from 'react'
-import { Link, useLocation } from 'react-router-dom'
+import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
   FiShield, FiSearch, FiAlertTriangle, FiZap,
   FiGlobe, FiClock, FiMessageSquare, FiFileText,
-  FiChevronDown, FiMenu, FiX
+  FiChevronDown, FiMenu, FiX, FiLogOut
 } from 'react-icons/fi'
+import { useAuthStore } from '../../store/authStore'
 
 const NAV_ITEMS = [
   { label: 'Dashboard', path: '/', icon: FiShield },
@@ -67,6 +68,8 @@ const DropMenu = ({ items, onClose }) => (
 
 export default function Navbar() {
   const location = useLocation()
+  const navigate = useNavigate()
+  const { user, logout } = useAuthStore()
   const [openDrop, setOpenDrop] = useState(null)
   const [mobileOpen, setMobileOpen] = useState(false)
   
@@ -74,6 +77,11 @@ export default function Navbar() {
   const [searchQuery, setSearchQuery] = useState('')
   const [isSearching, setIsSearching] = useState(false)
   const [searchResults, setSearchResults] = useState([])
+
+  const handleLogout = () => {
+    logout()
+    navigate('/login')
+  }
 
   // Flatten items for search
   const allServices = NAV_ITEMS.reduce((acc, item) => {
@@ -113,8 +121,8 @@ export default function Navbar() {
         {/* Right-side group: nav, status, mobile toggle */}
         <div className="flex items-center gap-3 ml-auto">
 
-          {/* Desktop Nav (logo left, items right) */}
-          <div className="hidden lg:flex items-center gap-1">
+          {/* Desktop Nav — visible above 1100px via custom CSS */}
+          <div className="nav-desktop hidden items-center gap-1">
           {NAV_ITEMS.map((item) => {
             const Icon = item.icon
             const isActive = item.path
@@ -227,9 +235,22 @@ export default function Navbar() {
             </AnimatePresence>
           </div>
 
-          {/* Mobile Toggle */}
+          {/* Logout + User — desktop only */}
+          <div className="nav-desktop hidden items-center gap-2 ml-2">
+            {user && <span className="text-xs font-mono" style={{ color: '#475569' }}>{user.email}</span>}
+            <button
+              id="navbar-logout-btn"
+              onClick={handleLogout}
+              title="Sign out"
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-all text-cyber-muted hover:text-cyber-red hover:bg-red-500/10"
+            >
+              <FiLogOut size={14} /> Sign Out
+            </button>
+          </div>
+
+          {/* Mobile Toggle — visible below 1100px */}
           <button
-            className="lg:hidden p-2 text-cyber-muted hover:text-white"
+            className="nav-mobile p-2 text-cyber-muted hover:text-white"
             onClick={() => setMobileOpen(p => !p)}
             id="mobile-menu-toggle"
           >
@@ -238,14 +259,14 @@ export default function Navbar() {
         </div>
       </div>
 
-      {/* Mobile Menu */}
+      {/* Mobile Menu — visible below 1100px */}
       <AnimatePresence>
         {mobileOpen && (
           <motion.div
             initial={{ height: 0, opacity: 0 }}
             animate={{ height: 'auto', opacity: 1 }}
             exit={{ height: 0, opacity: 0 }}
-            className="lg:hidden border-t border-cyber-border/50 overflow-hidden"
+            className="nav-mobile border-t border-cyber-border/50 overflow-hidden"
           >
             <div className="px-4 py-3 flex flex-col gap-1">
               {NAV_ITEMS.map((item) => {
@@ -280,6 +301,13 @@ export default function Navbar() {
                   </Link>
                 )
               })}
+              {/* Mobile logout */}
+              <button
+                onClick={handleLogout}
+                className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm text-cyber-muted hover:text-cyber-red hover:bg-red-500/10 mt-2 border-t border-cyber-border/30 pt-3"
+              >
+                <FiLogOut size={14} /> Sign Out
+              </button>
             </div>
           </motion.div>
         )}

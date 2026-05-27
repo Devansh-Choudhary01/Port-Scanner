@@ -1,7 +1,9 @@
 import whois
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from app.models.recon_models import WHOISRequest, WHOISResponse
 from app.core.security import sanitize_host
+from app.api.auth.auth import get_current_user
+from app.core.audit import log_scan
 from datetime import datetime, timedelta
 
 router = APIRouter()
@@ -17,12 +19,17 @@ def _to_str(value) -> str | None:
 
 
 @router.post("/whois", response_model=WHOISResponse, summary="WHOIS Lookup")
-async def whois_lookup(request: WHOISRequest):
-    """
-    Perform a WHOIS lookup on a domain.
-    Returns registrar info, dates, nameservers, and more.
-    """
+async def whois_lookup(
+    request: WHOISRequest,
+    http_request: Request,
+    current_user: dict = Depends(get_current_user),
+):
+    """Perform a WHOIS lookup. Requires JWT auth and consent."""
+    if not getattr(request, "consent_confirmed", False):
+        raise HTTPException(status_code=403, detail="You must confirm authorization before scanning.")
     domain = sanitize_host(request.domain)
+    client_ip = http_request.client.host if http_request.client else "unknown"
+    log_scan(current_user["email"], "whois", domain, client_ip)
 
     try:
         w = whois.whois(domain)

@@ -1,8 +1,10 @@
 import dns.resolver
 import asyncio
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from app.models.recon_models import DNSRequest, DNSResponse, DNSRecord
 from app.core.security import sanitize_host
+from app.api.auth.auth import get_current_user
+from app.core.audit import log_scan
 
 router = APIRouter()
 
@@ -26,13 +28,17 @@ def query_record(domain: str, rtype: str) -> list[DNSRecord]:
 
 
 @router.post("/dns", response_model=DNSResponse, summary="DNS Lookup")
-async def dns_lookup(request: DNSRequest):
-    """
-    Perform DNS lookups on a domain.
-    Pass record_type="ALL" to retrieve all common record types.
-    Supports: A, AAAA, MX, NS, TXT, CNAME, SOA, PTR, SRV.
-    """
+async def dns_lookup(
+    request: DNSRequest,
+    http_request: Request,
+    current_user: dict = Depends(get_current_user),
+):
+    """Perform DNS lookups. Requires JWT auth and consent."""
+    if not getattr(request, "consent_confirmed", False):
+        raise HTTPException(status_code=403, detail="You must confirm authorization before scanning.")
     domain = sanitize_host(request.domain)
+    client_ip = http_request.client.host if http_request.client else "unknown"
+    log_scan(current_user["email"], "dns", domain, client_ip)
     rtype = request.record_type.upper() if request.record_type else "ALL"
 
     if rtype != "ALL" and rtype not in RECORD_TYPES:

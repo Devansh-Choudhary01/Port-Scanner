@@ -1,9 +1,11 @@
 import asyncio
 import socket
 import time
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from app.models.recon_models import NetworkScanRequest, NetworkScanResponse
 from app.core.security import sanitize_host, resolve_host
+from app.api.auth.auth import get_current_user
+from app.core.audit import log_scan
 
 router = APIRouter()
 
@@ -39,15 +41,18 @@ def _guess_os(open_ports: list[int]) -> str:
 
 
 @router.post("/network-scan", response_model=NetworkScanResponse, summary="Network Scanner")
-async def network_scan(request: NetworkScanRequest):
-    """
-    Perform a lightweight network scan on a host:
-    - Checks if host is alive (ICMP-like via TCP probe)
-    - Tests quick-check ports
-    - Provides a rough OS fingerprint
-    """
+async def network_scan(
+    request: NetworkScanRequest,
+    http_request: Request,
+    current_user: dict = Depends(get_current_user),
+):
+    """Perform a network scan. Requires JWT auth and consent."""
+    if not getattr(request, "consent_confirmed", False):
+        raise HTTPException(status_code=403, detail="You must confirm authorization before scanning.")
     host = sanitize_host(request.host)
     ip = resolve_host(host)
+    client_ip = http_request.client.host if http_request.client else "unknown"
+    log_scan(current_user["email"], "network-scan", host, client_ip)
 
     if not ip:
         raise HTTPException(status_code=404, detail=f"Could not resolve host: {host}")

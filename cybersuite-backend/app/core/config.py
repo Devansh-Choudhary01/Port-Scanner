@@ -27,8 +27,12 @@ class Settings(BaseSettings):
     GROQ_API_KEY: str = ""
     GROQ_API_URL: str = "https://api.groq.com/openai/v1"
 
-    # Rate Limiting
+    # Rate Limiting (B2)
     RATE_LIMIT: int = 30
+    RATE_LIMIT_STRING: str = "30/minute"
+
+    # JWT Secret (B1) — override in .env with a strong random string
+    JWT_SECRET: str = "cybersuite-super-secret-jwt-key-change-in-production"
 
     class Config:
         env_file = ".env"

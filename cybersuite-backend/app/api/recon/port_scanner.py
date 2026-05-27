@@ -1,9 +1,11 @@
 import socket
 import asyncio
 import time
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends, HTTPException, Request
 from app.models.recon_models import PortScanRequest, PortScanResponse, PortResult
 from app.core.security import sanitize_host, sanitize_port_range, resolve_host
+from app.api.auth.auth import get_current_user
+from app.core.audit import log_scan
 
 router = APIRouter()
 
@@ -72,13 +74,23 @@ async def scan_port_udp(host: str, port: int, timeout: float = 1.0) -> PortResul
 
 
 @router.post("/port-scan", response_model=PortScanResponse, summary="Port Scanner (TCP/UDP)")
-async def port_scan(request: PortScanRequest):
+async def port_scan(
+    request: PortScanRequest,
+    http_request: Request,
+    current_user: dict = Depends(get_current_user),
+):
     """
     Scan target host for open ports.
-    Supports TCP and UDP protocols, and specific port lists or ranges.
+    Requires JWT auth and consent confirmation.
     """
+    if not getattr(request, "consent_confirmed", False):
+        raise HTTPException(status_code=403, detail="You must confirm authorization before scanning.")
+
     host = sanitize_host(request.host)
     ip = resolve_host(host)
+
+    client_ip = http_request.client.host if http_request.client else "unknown"
+    log_scan(current_user["email"], "port-scan", host, client_ip)
     start_time = time.monotonic()
 
     # Determine ports to scan

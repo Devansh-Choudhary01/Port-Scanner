@@ -1,7 +1,9 @@
 import httpx
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from app.models.vuln_models import WordPressScanRequest, WordPressScanResponse, WPFinding
 from app.core.security import sanitize_url
+from app.api.auth.auth import get_current_user
+from app.core.audit import log_scan
 
 router = APIRouter()
 
@@ -34,16 +36,17 @@ async def _probe(client: httpx.AsyncClient, base: str, path: str) -> tuple[str, 
 
 
 @router.post("/wordpress-scan", response_model=WordPressScanResponse, summary="WordPress Scanner")
-async def wordpress_scan(request: WordPressScanRequest):
-    """
-    Scan a WordPress site for:
-    - Exposed admin/login pages
-    - XML-RPC endpoint
-    - Readme / debug log exposure
-    - Installed plugin hints
-    - WP version leak
-    """
+async def wordpress_scan(
+    request: WordPressScanRequest,
+    http_request: Request,
+    current_user: dict = Depends(get_current_user),
+):
+    """Scan a WordPress site for vulnerabilities. Requires JWT auth and consent."""
+    if not getattr(request, "consent_confirmed", False):
+        raise HTTPException(status_code=403, detail="You must confirm authorization before scanning.")
     url = sanitize_url(request.url)
+    client_ip = http_request.client.host if http_request.client else "unknown"
+    log_scan(current_user["email"], "wordpress-scan", url, client_ip)
 
     findings: list[WPFinding] = []
     wp_version = None

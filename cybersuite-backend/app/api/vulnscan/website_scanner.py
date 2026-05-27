@@ -3,11 +3,13 @@ import socket
 import asyncio
 import httpx
 from datetime import datetime, timezone
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from app.models.vuln_models import (
     WebsiteScanRequest, WebsiteScanResponse, HeaderAnalysis, SSLInfo
 )
 from app.core.security import sanitize_url
+from app.api.auth.auth import get_current_user
+from app.core.audit import log_scan
 
 router = APIRouter()
 
@@ -86,15 +88,17 @@ def _check_ssl(hostname: str) -> SSLInfo:
 
 
 @router.post("/website-scan", response_model=WebsiteScanResponse, summary="Website Security Scanner")
-async def website_scan(request: WebsiteScanRequest):
-    """
-    Analyse a website for:
-    - Missing security headers
-    - SSL certificate health
-    - Technology stack detection
-    - Overall risk score
-    """
+async def website_scan(
+    request: WebsiteScanRequest,
+    http_request: Request,
+    current_user: dict = Depends(get_current_user),
+):
+    """Analyse a website for security headers, SSL, and tech stack. Requires JWT auth and consent."""
+    if not getattr(request, "consent_confirmed", False):
+        raise HTTPException(status_code=403, detail="You must confirm authorization before scanning.")
     url = sanitize_url(request.url)
+    client_ip = http_request.client.host if http_request.client else "unknown"
+    log_scan(current_user["email"], "website-scan", url, client_ip)
     hostname = url.split("//")[1].split("/")[0]
 
     try:

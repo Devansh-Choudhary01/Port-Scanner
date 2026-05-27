@@ -4,6 +4,9 @@ import ScanTerminal from '../components/scan/ScanTerminal'
 import ScanProgressBar from '../components/scan/ScanProgressBar'
 import ScanResults from '../components/scan/ScanResults'
 import LoadingSpinner from '../components/ui/LoadingSpinner'
+import ConsentCheckbox from '../components/ui/ConsentCheckbox'
+import ConfirmScanDialog from '../components/ui/ConfirmScanDialog'
+import RateLimitBadge from '../components/ui/RateLimitBadge'
 import { api } from '../services/api'
 import toast from 'react-hot-toast'
 
@@ -22,16 +25,30 @@ export default function VulnScanners() {
   const [progress, setProgress] = useState(0)
   const [result, setResult]     = useState(null)
   const [termLines, setTerm]    = useState([])
+  const [consent, setConsent]   = useState(false)
+  const [showConfirm, setShowConfirm] = useState(false)
 
   const addLine = (text, type = 'info') => setTerm(p => [...p, { text, type }])
 
-  const run = async () => {
+  const tool = TOOLS.find(t => t.id === active)
+
+  const handleRun = () => {
     if (!input.trim()) { toast.error('Target required'); return }
+    if (active !== 'password') {
+      if (!consent) { toast.error('Please confirm authorization first'); return }
+      setShowConfirm(true)
+    } else {
+      run()
+    }
+  }
+
+  const run = async () => {
+    setShowConfirm(false)
     setScan(true); setResult(null); setTerm([]); setProgress(0)
     const tick = setInterval(() => setProgress(p => Math.min(p + 3, 90)), 100)
 
     try {
-      addLine(`> Running ${TOOLS.find(t=>t.id===active).label}...`, 'prompt')
+      addLine(`> Running ${tool.label}...`, 'prompt')
       addLine(`> Target: ${input}`, 'info')
 
       let res, type
@@ -39,10 +56,10 @@ export default function VulnScanners() {
         res = await api.post('/api/vulnscan/password-check', { password: input })
         type = 'password'
       } else if (active === 'website') {
-        res = await api.post('/api/vulnscan/website-scan', { url: input })
+        res = await api.post('/api/vulnscan/website-scan', { url: input, consent_confirmed: true })
         type = 'website'
       } else {
-        res = await api.post('/api/vulnscan/wordpress-scan', { url: input })
+        res = await api.post('/api/vulnscan/wordpress-scan', { url: input, consent_confirmed: true })
         type = 'generic'
       }
       clearInterval(tick); setProgress(100)
@@ -60,8 +77,13 @@ export default function VulnScanners() {
   return (
     <div className="page-container space-y-5">
       <div>
-        <h1 className="text-2xl font-black text-white">Vulnerability <span className="gradient-text">Scanners</span></h1>
-        <p className="text-xs text-cyber-muted mt-1 font-mono">Security analysis & misconfiguration detection</p>
+        <div className="flex items-center justify-between flex-wrap gap-2">
+          <div>
+            <h1 className="text-2xl font-black text-white">Vulnerability <span className="gradient-text">Scanners</span></h1>
+            <p className="text-xs text-cyber-muted mt-1 font-mono">Security analysis & misconfiguration detection</p>
+          </div>
+          <RateLimitBadge />
+        </div>
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
@@ -92,10 +114,23 @@ export default function VulnScanners() {
                 value={input}
                 onChange={e => setInput(e.target.value)}
                 id="vulnscan-input"
-                onKeyDown={e => e.key === 'Enter' && run()}
+                onKeyDown={e => e.key === 'Enter' && handleRun()}
               />
             </div>
-            <button onClick={run} disabled={isScanning} className="btn-cyber w-full justify-center" id="vulnscan-btn"
+
+            {/* F8 — Privacy Notice for Password Checker */}
+            {active === 'password' && (
+              <p className="text-xs leading-relaxed" style={{ color: '#64748B' }}>
+                🔒 <strong className="text-white">Privacy Guarantee:</strong> Your password is processed strictly in your browser and is not stored or logged anywhere on the server.
+              </p>
+            )}
+
+            {/* F2 — Consent Checkbox for infrastructure scans */}
+            {active !== 'password' && (
+              <ConsentCheckbox checked={consent} onChange={setConsent} />
+            )}
+
+            <button onClick={handleRun} disabled={isScanning || (active !== 'password' && !consent)} className="btn-cyber w-full justify-center" id="vulnscan-btn"
               style={{ borderColor: 'rgba(139,92,246,0.4)', color: '#8B5CF6' }}>
               {isScanning ? <><LoadingSpinner size={16} label={null}/> Analysing...</> : '▶ Run Analysis'}
             </button>
@@ -113,6 +148,15 @@ export default function VulnScanners() {
           <ScanResults data={result.data} type={result.type} />
         </GlassCard>
       )}
+
+      {/* F13 — Confirm dialog */}
+      <ConfirmScanDialog
+        open={showConfirm}
+        onConfirm={run}
+        onCancel={() => setShowConfirm(false)}
+        toolName={tool.label}
+        target={input}
+      />
     </div>
   )
 }

@@ -5,6 +5,9 @@ import ScanTerminal from '../components/scan/ScanTerminal'
 import ScanProgressBar from '../components/scan/ScanProgressBar'
 import ScanResults from '../components/scan/ScanResults'
 import LoadingSpinner from '../components/ui/LoadingSpinner'
+import ConsentCheckbox from '../components/ui/ConsentCheckbox'
+import ConfirmScanDialog from '../components/ui/ConfirmScanDialog'
+import RateLimitBadge from '../components/ui/RateLimitBadge'
 import { api } from '../services/api'
 import toast from 'react-hot-toast'
 
@@ -53,6 +56,8 @@ export default function ReconTools() {
   const [progress, setProgress] = useState(0)
   const [result, setResult]     = useState(null)
   const [termLines, setTerm]    = useState([])
+  const [consent, setConsent]   = useState(false)
+  const [showConfirm, setShowConfirm] = useState(false)
 
   const tool = TOOLS.find(t => t.id === active)
 
@@ -65,8 +70,14 @@ export default function ReconTools() {
   const addTermLine = (text, type = 'info') =>
     setTerm(prev => [...prev, { text, type }])
 
-  const runScan = async () => {
+  const handleRun = () => {
     if (!host.trim()) { toast.error('Please enter a target host or domain'); return }
+    if (!consent) { toast.error('Please confirm authorization first'); return }
+    setShowConfirm(true)
+  }
+
+  const runScan = async () => {
+    setShowConfirm(false)
     setScan(true); setResult(null); setTerm([]); setProgress(0)
 
     const progressTick = setInterval(() => setProgress(p => Math.min(p + 2, 92)), 80)
@@ -75,13 +86,14 @@ export default function ReconTools() {
       addTermLine(`> Starting ${tool.label}...`, 'prompt')
       addTermLine(`> Target: ${host}`, 'info')
 
-      let payload = {}
+      let payload = { consent_confirmed: true }
       let type = 'generic'
       let endpoint = tool.path
 
       if (active === 'port') {
         const portsArr = customPorts ? customPorts.split(',').map(p => parseInt(p.trim())).filter(p => !isNaN(p)) : null
         payload = { 
+          ...payload,
           host, 
           protocol,
           ports: portsArr,
@@ -93,14 +105,14 @@ export default function ReconTools() {
         if (portsArr) addTermLine(`> Ports: ${portsArr.length} specific targets`, 'info')
         else addTermLine(`> Range: ${startPort}-${endPort}`, 'info')
       } else if (active === 'subdomain') {
-        payload = { domain: host }
+        payload = { ...payload, domain: host }
         type = 'subdomain'
       } else if (active === 'whois') {
-        payload = { domain: host }
+        payload = { ...payload, domain: host }
       } else if (active === 'dns') {
-        payload = { domain: host, record_type: dnsType }
+        payload = { ...payload, domain: host, record_type: dnsType }
       } else if (active === 'network') {
-        payload = { host }
+        payload = { ...payload, host }
       }
 
       const res = await api.post(endpoint, payload)
@@ -122,8 +134,13 @@ export default function ReconTools() {
   return (
     <div className="page-container space-y-5">
       <div>
-        <h1 className="text-2xl font-black text-white">Recon <span className="gradient-text">Tools</span></h1>
-        <p className="text-xs text-cyber-muted mt-1 font-mono">Reconnaissance & information gathering modules</p>
+        <div className="flex items-center justify-between flex-wrap gap-2">
+          <div>
+            <h1 className="text-2xl font-black text-white">Recon <span className="gradient-text">Tools</span></h1>
+            <p className="text-xs text-cyber-muted mt-1 font-mono">Reconnaissance & information gathering modules</p>
+          </div>
+          <RateLimitBadge />
+        </div>
       </div>
 
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
@@ -228,7 +245,10 @@ export default function ReconTools() {
               </div>
             )}
 
-            <button onClick={runScan} disabled={isScanning} className="btn-cyber w-full justify-center" id="recon-scan-btn">
+            {/* Consent Checkbox */}
+            <ConsentCheckbox checked={consent} onChange={setConsent} />
+
+            <button onClick={handleRun} disabled={isScanning || !consent} className="btn-cyber w-full justify-center" id="recon-scan-btn">
               {isScanning ? <><LoadingSpinner size={16} label={null} /> Scanning...</> : `▶ Run ${tool.label}`}
             </button>
 
@@ -248,6 +268,15 @@ export default function ReconTools() {
           <ScanResults data={result.data} type={result.type} />
         </GlassCard>
       )}
+
+      {/* F13 — Confirm dialog */}
+      <ConfirmScanDialog
+        open={showConfirm}
+        onConfirm={runScan}
+        onCancel={() => setShowConfirm(false)}
+        toolName={tool.label}
+        target={host}
+      />
     </div>
   )
 }

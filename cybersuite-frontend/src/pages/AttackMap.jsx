@@ -48,9 +48,21 @@ export default function AttackMap() {
 
   return (
     <div className="page-container space-y-5">
+      {/* Persistent Neon Banner */}
+      <div 
+        className="glass border border-cyber-cyan/30 px-4 py-3 rounded-xl flex items-center justify-between shadow-neon-cyan/10"
+        style={{ background: 'rgba(0,212,255,0.05)' }}
+      >
+        <div className="flex items-center gap-2">
+          <span className="w-2 h-2 rounded-full bg-cyber-cyan animate-pulse-slow shadow-neon-cyan" />
+          <p className="text-xs font-bold text-cyber-cyan tracking-wider uppercase">SIMULATION MODE ACTIVE — GLOBAL THREAT ARC SIMULATOR</p>
+        </div>
+        <p className="text-[10px] text-cyber-muted font-mono hidden md:block">Deterministic pattern visualization</p>
+      </div>
+
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div>
-          <h1 className="text-2xl font-black text-white">Live Attack <span className="gradient-text">Map</span></h1>
+          <h1 className="text-2xl font-black text-white">Simulated Attack <span className="gradient-text">Map</span></h1>
           <p className="text-xs text-cyber-muted mt-1 font-mono">Simulated global cyber threat visualization</p>
         </div>
         <div className="flex items-center gap-3">
@@ -97,8 +109,8 @@ export default function AttackMap() {
               <span className="text-cyber-green">Globe rendered via Three.js</span>
             </div>
             <div className="flex items-center gap-2 text-xs text-cyber-muted">
-              <span className="status-dot dot-online animate-pulse-slow"/>
-              <span className="font-mono">LIVE SIM</span>
+              <span className="status-dot dot-online animate-pulse-slow" style={{ backgroundColor: '#00d4ff', boxShadow: '0 0 8px #00d4ff' }}/>
+              <span className="font-mono">SIMULATION MODE</span>
             </div>
           </div>
         </GlassCard>

@@ -272,3 +272,14 @@ body {
   0%   { background-position: 200% 0 }
   100% { background-position: -200% 0 }
 }
+
+/* ── F9: Navbar 1100px breakpoint ── */
+/* Below 1100px: show hamburger, hide desktop nav */
+.nav-desktop { display: none !important; }
+.nav-mobile  { display: flex; }
+
+@media (min-width: 1100px) {
+  .nav-desktop { display: flex !important; }
+  .nav-mobile  { display: none !important; }
+}
+
